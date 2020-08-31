@@ -16,39 +16,39 @@
     this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from __init__ import *
-
+import calendar
+import configparser
+import html
+import json
+import locale
+import logging
 import os
-import sys
+import pickle
 import platform
 import re
-import mechanicalsoup
-import requests
+import sys
 import urllib.parse
-from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
+from distutils import util
+from io import BytesIO
+
+import mechanicalsoup
+import pytz
+import requests
 from babel import Locale
 from babel.core import UnknownLocaleError
 from babel.dates import format_date
-import html
-import locale
-import pytz
-import json
-import ics
-from ics import Calendar, Event
-from ics.grammar.parse import ContentLine
-import configparser
-import logging
-from distutils import util
-import calendar
-
-from oauth2client import file, client, tools
+from bs4 import BeautifulSoup
+from dateutil.relativedelta import relativedelta
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
-from googleapiclient.errors import HttpError
 from httplib2 import Http
-from io import BytesIO
+from ics import Calendar, Event
+from ics.grammar.parse import ContentLine
+from oauth2client import client, file, tools
+
+from __init__ import *
+
 
 # Classes
 class Birthday:
