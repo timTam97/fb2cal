@@ -67,7 +67,6 @@ class Birthday:
 
 # Entry point
 def main():
-
     # Set CWD to script directory
     os.chdir(sys.path[0])
 
@@ -128,82 +127,10 @@ def main():
         logger.warning(f"Birthday list is empty. Failed to fetch any birthdays.")
         raise SystemError
 
+    with open("birthdays", "wb") as f:
+        pickle.dump(birthdays, f)
+    logger.info("Birthday file dumped to disk.")
     logger.info(f"A total of {len(birthdays)} birthdays were found.")
-
-    # Create birthdays ICS file
-    logger.info("Creating birthday ICS file...")
-    c = populate_birthdays_calendar(birthdays)
-    logger.info("ICS file created successfully.")
-
-    # Remove blank lines
-    ics_str = "".join([line.rstrip("\n") for line in c])
-    logger.debug(f"ics_str: {ics_str}")
-
-    # Save to file system
-    if util.strtobool(config["FILESYSTEM"]["SAVE_TO_FILE"]):
-        logger.info(f"Saving ICS file to local file system...")
-
-        if not os.path.exists(os.path.dirname(config["FILESYSTEM"]["ICS_FILE_PATH"])):
-            os.makedirs(
-                os.path.dirname(config["FILESYSTEM"]["ICS_FILE_PATH"]), exist_ok=True
-            )
-
-        with open(
-            config["FILESYSTEM"]["ICS_FILE_PATH"], mode="w", encoding="UTF-8"
-        ) as ics_file:
-            ics_file.write(ics_str)
-        logger.info(
-            f'Successfully saved ICS file to {os.path.abspath(config["FILESYSTEM"]["ICS_FILE_PATH"])}'
-        )
-
-    # Upload to drive
-    if util.strtobool(config["DRIVE"]["UPLOAD_TO_DRIVE"]):
-        logger.info("Uploading ICS file to Google Drive...")
-        metadata = {"name": config["DRIVE"]["ICS_FILE_NAME"]}
-        UPLOAD_RETRY_ATTEMPTS = 3
-        uploaded_successfully = False
-
-        for attempt in range(UPLOAD_RETRY_ATTEMPTS):
-            try:
-                updated_file = upload_and_replace_file(
-                    service,
-                    config["DRIVE"]["DRIVE_FILE_ID"],
-                    metadata,
-                    bytearray(ics_str, "utf-8"),
-                )  # Pass payload as bytes
-                config.set("DRIVE", "DRIVE_FILE_ID", updated_file["id"])
-                uploaded_successfully = True
-            except HttpError as e:
-                if e.resp.status == 404:  # file not found
-                    if config["DRIVE"]["DRIVE_FILE_ID"]:
-                        logger.warning(
-                            f"{e}. Resetting stored file id in config and trying again. Attempt: {attempt+1}"
-                        )
-                        config.set("DRIVE", "DRIVE_FILE_ID", "")  # reset stored file_id
-                        continue
-                    else:
-                        logger.error(e)
-                        raise SystemError
-                else:
-                    logger.error(e)
-                    raise SystemError
-
-        if uploaded_successfully:
-            logger.info(
-                f'Successfully uploaded {config["DRIVE"]["ICS_FILE_NAME"]} to Google Drive with file id: {config["DRIVE"]["DRIVE_FILE_ID"]}\nDirect download link: http://drive.google.com/uc?export=download&id={config["DRIVE"]["DRIVE_FILE_ID"]}'
-            )
-        else:
-            logger.error(
-                f'Failed to upload {config["DRIVE"]["ICS_FILE_NAME"]} to Google Drive after {UPLOAD_RETRY_ATTEMPTS} attempts.'
-            )
-            raise SystemError
-
-    # Update config file with updated file id for subsequent runs
-    logger.info("Saving changes to config file...")
-    with open(CONFIG_FILE_PATH, "w") as configfile:
-        config.write(configfile)
-    logger.info("Successfully saved changes to config file.")
-
     logger.info("Done! Terminating gracefully.")
 
 
@@ -705,7 +632,7 @@ def parse_birthday_day_month(tooltip_content, name, user_locale):
         parsed_date = datetime.strptime(
             f"{birthday_date_str}/1972", locale_date_format_mapping[user_locale] + "/%Y"
         )
-        return (parsed_date.day, parsed_date.month)
+        return parsed_date.day, parsed_date.month
     except ValueError:
         # Otherwise, have to convert day names to a day and month
         offset_dict = get_day_name_offset_dict(user_locale)
@@ -716,10 +643,10 @@ def parse_birthday_day_month(tooltip_content, name, user_locale):
 
         if day_name in offset_dict:
             cur_date = cur_date + relativedelta(days=offset_dict[day_name])
-            return (cur_date.day, cur_date.month)
+            return cur_date.day, cur_date.month
 
     logger.error(
-        f'Failed to parse birthday day/month. Parse failed with tooltip_content: "{tooltip_content}", locale: "{user_locale}". Day name "{day_name}" is not in the offset dict {offset_dict}'
+        f'Failed to parse birthday day/month. Parse failed with tooltip_content: "{tooltip_content}", locale: "{user_locale}". Day name "{day_name}" is not in the offset dict {offset_dict} '
     )
     raise SystemError
 
