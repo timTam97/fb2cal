@@ -102,12 +102,6 @@ def main():
 
     logger.info(f"Logging level set to: {logging.getLevelName(logger.level)}")
 
-    # Authenticate with Google API early
-    if util.strtobool(config["DRIVE"]["UPLOAD_TO_DRIVE"]):
-        logger.info("Authenticating with Google Drive API...")
-        service = google_drive_api_authenticate()
-        logger.info("Successfully authenticated with Google Drive API.")
-
     # Init browser
     browser = mechanicalsoup.StatefulBrowser()
     init_browser(browser)
@@ -236,52 +230,6 @@ def facebook_authenticate(browser, email, password):
             f"Hit Facebook security checkpoint. Please login to Facebook manually and follow prompts to authorize this device."
         )
         raise SystemError
-
-
-def google_drive_api_authenticate():
-    """ Authenticate with Google Drive Api """
-
-    # Confirm credentials.json exists
-    if not os.path.isfile("credentials.json"):
-        logger.error(f"credentials.json file does not exist")
-        raise SystemExit
-
-    SCOPES = "https://www.googleapis.com/auth/drive.file"
-    store = file.Storage("token.json")
-    creds = store.get()
-    if not creds or creds.invalid:
-        flow = client.flow_from_clientsecrets("credentials.json", SCOPES)
-        creds = tools.run_flow(flow, store)
-    service = build("drive", "v3", http=creds.authorize(Http()), cache_discovery=False)
-    return service
-
-
-def upload_and_replace_file(service, file_id, metadata, payload):
-    mine_type = "text/calendar"
-    text_stream = BytesIO(payload)
-    media_body = MediaIoBaseUpload(
-        text_stream, mimetype=mine_type, chunksize=1024 * 1024, resumable=True
-    )
-
-    # If file id is provided, update the file, otherwise we'll create a new file
-    if file_id:
-        updated_file = (
-            service.files()
-            .update(fileId=file_id, body=metadata, media_body=media_body)
-            .execute()
-        )
-    else:
-        updated_file = (
-            service.files().create(body=metadata, media_body=media_body).execute()
-        )
-
-        # Need publically accessible ics file so third party tools can read from it publically
-        permission = {"role": "reader", "type": "anyone"}
-        service.permissions().create(
-            fileId=updated_file["id"], body=permission
-        ).execute()
-
-    return updated_file
 
 
 __cached_async_token = None
@@ -420,8 +368,8 @@ def get_async_birthdays(browser):
 
 
 def get_next_12_month_epoch_timestamps():
-    """ Returns array of epoch timestamps corresponding to the 1st day of the next 12 months starting from the current month.
-        For example, if the current date is 2000-05-20, will return epoch for 2000-05-01, 2000-06-01, 2000-07-01 etc for 12 months """
+    """Returns array of epoch timestamps corresponding to the 1st day of the next 12 months starting from the current month.
+    For example, if the current date is 2000-05-20, will return epoch for 2000-05-01, 2000-06-01, 2000-07-01 etc for 12 months"""
 
     epoch_timestamps = []
 
@@ -483,10 +431,10 @@ def parse_birthday_async_output(browser, text):
 
 
 def parse_birthday_day_month(tooltip_content, name, user_locale):
-    """ Convert the Facebook birthday tooltip content to a day and month number. Facebook will use a tooltip format based on the users Facebook language (locale).
-        The date will be in some date format which reveals the birthday day and birthday month.
-        This is done for all birthdays expect those in the following week relative to the current date.
-        Those will instead show day names such as 'Monday', 'Tuesday' etc for the next 7 days. """
+    """Convert the Facebook birthday tooltip content to a day and month number. Facebook will use a tooltip format based on the users Facebook language (locale).
+    The date will be in some date format which reveals the birthday day and birthday month.
+    This is done for all birthdays expect those in the following week relative to the current date.
+    Those will instead show day names such as 'Monday', 'Tuesday' etc for the next 7 days."""
 
     birthday_date_str = tooltip_content
 
@@ -652,8 +600,8 @@ def parse_birthday_day_month(tooltip_content, name, user_locale):
 
 
 def get_day_name_offset_dict(user_locale):
-    """ The day name to offset dict maps a day name to a numerical day offset which can be used to add days to the current date.
-        Day names will match the provided user locale and will be in lowercase.
+    """The day name to offset dict maps a day name to a numerical day offset which can be used to add days to the current date.
+    Day names will match the provided user locale and will be in lowercase.
     """
 
     offset_dict = {}
@@ -721,52 +669,6 @@ def strip_ajax_response_prefix(payload):
     if payload.startswith("for (;;);"):
         return payload[9:]
     return payload
-
-
-def populate_birthdays_calendar(birthdays):
-    """ Populate a birthdays calendar using birthday objects """
-
-    c = Calendar()
-    c.scale = "GREGORIAN"
-    c.method = "PUBLISH"
-    c.creator = f"fb2cal v{__version__} ({__status__}) [{__website__}]"
-    c.extra.append(
-        ContentLine(name="X-WR-CALNAME", value="Facebook Birthdays (fb2cal)")
-    )
-    c.extra.append(ContentLine(name="X-PUBLISHED-TTL", value="PT12H"))
-    c.extra.append(ContentLine(name="X-ORIGINAL-URL", value="/events/birthdays/"))
-
-    cur_date = datetime.now()
-
-    for birthday in birthdays:
-        e = Event()
-        e.uid = birthday.uid
-        e.created = cur_date
-        e.name = f"{birthday.name}'s Birthday"
-
-        # Calculate the year as this year or next year based on if its past current month or not
-        # Also pad day, month with leading zeros to 2dp
-        year = (
-            cur_date.year
-            if birthday.month >= cur_date.month
-            else (cur_date + relativedelta(years=1)).year
-        )
-
-        # Feb 29 special case:
-        # If event year is not a leap year, use Feb 28 as birthday date instead
-        if birthday.month == 2 and birthday.day == 29 and not calendar.isleap(year):
-            birthday.day = 28
-
-        month = "{:02d}".format(birthday.month)
-        day = "{:02d}".format(birthday.day)
-        e.begin = f"{year}-{month}-{day} 00:00:00"
-        e.make_all_day()
-        e.duration = timedelta(days=1)
-        e.extra.append(ContentLine(name="RRULE", value="FREQ=YEARLY"))
-
-        c.events.add(e)
-
-    return c
 
 
 if __name__ == "__main__":

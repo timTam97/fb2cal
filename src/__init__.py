@@ -14,7 +14,7 @@
     this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from _version import __version_info__, __version__
+from _version import __version__, __version_info__
 
 __author__ = "Mo Beigi"
 __copyright__ = "Copyright 2019"
