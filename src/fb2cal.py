@@ -16,7 +16,6 @@
     this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-import calendar
 import configparser
 import html
 import json
@@ -28,9 +27,7 @@ import platform
 import re
 import sys
 import urllib.parse
-from datetime import datetime, timedelta
-from distutils import util
-from io import BytesIO
+from datetime import datetime
 
 import mechanicalsoup
 import pytz
@@ -40,12 +37,6 @@ from babel.core import UnknownLocaleError
 from babel.dates import format_date
 from bs4 import BeautifulSoup
 from dateutil.relativedelta import relativedelta
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-from httplib2 import Http
-from ics import Calendar, Event
-from ics.grammar.parse import ContentLine
-from oauth2client import client, file, tools
 
 from __init__ import *
 
